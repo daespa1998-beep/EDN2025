@@ -75,5 +75,85 @@ lote* crear_lote(int fecha, int stock, const char* producto){
 }
 
 lote* insertar_lote(lote* raiz, int fecha, int stock, const char* producto){
-    
+    if (raiz == NULL){
+        return crear_lote(fecha, stock, producto);
+    }
+    if (fecha < raiz->fecha_venc){
+        raiz->izq = insertar_lote(raiz->izq, fecha, stock, producto);
+    } else if (fecha > raiz->fecha_venc){
+        raiz->der = insertar_lote(raiz->der, fecha, stock, producto);
+    } else {
+        printf("El lote con fecha %d ya existe. No se inserta.\n", fecha);
+        return raiz;
+    }
+    raiz->altura = 1 + max(altura(raiz->izq), altura(raiz->der));
+    int bal = balance(raiz);
+    if (bal > 1 && fecha < raiz->izq->fecha_venc){
+        return rotar_der(raiz);
+    }
+    if (bal < -1 && fecha > raiz->der->fecha_venc){
+        return rotar_izq(raiz);
+    }
+    if (bal > 1 && fecha > raiz->izq->fecha_venc){
+        raiz->izq = rotar_izq(raiz->izq);
+        return rotar_der(raiz);
+    }
+    if (bal < -1 && fecha < raiz->der->fecha_venc){
+        raiz->der = rotar_der(raiz->der);
+        return rotar_izq(raiz);
+    }
+    return raiz;
+
 }
+lote* buscar_lote(lote* raiz, int fecha){
+    if (raiz == NULL || raiz->fecha_venc == fecha){
+        return raiz;
+    }
+    if (fecha < raiz->fecha_venc){
+        return buscar_lote(raiz->izq, fecha);
+    }
+    return buscar_lote(raiz->der, fecha);
+}
+
+int contar_pedidos(pedido* cabeza){
+    int contador = 0;
+    while (cabeza){
+        contador++;
+        cabeza = cabeza->siguiente;
+    }
+    return contador;    
+}
+
+void liberar_cola(pedido* cabeza){
+    pedido* temp;
+    while (cabeza){
+        temp = cabeza;
+        cabeza = cabeza->siguiente;
+        free(temp);
+    }
+}
+
+void encolar_pedido(lote* l, const char* destino, int cantidad){
+    if (!l)return;
+    pedido* nuevo = (pedido*)malloc(sizeof(pedido));
+    if (!nuevo){
+        printf("Error al asignar memoria para el pedido.\n");
+        return;
+    }
+    strncpy(nuevo->destino, destino, sizeof(nuevo->destino)-1);
+    nuevo->destino[sizeof(nuevo->destino)-1] = '\0';
+    nuevo->cantidad = cantidad;
+    nuevo->siguiente = NULL;
+
+    if (l->pedidos == NULL){
+        l->pedidos = nuevo;
+    } else {
+        pedido* temp = l->pedidos;
+        while (temp->siguiente){
+            temp = temp->siguiente;
+        }
+        temp->siguiente = nuevo;
+    }
+    l->stock_total -= cantidad;
+}
+
